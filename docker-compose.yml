@@ -1,0 +1,11 @@
+services:
+  coinly:
+    build: .
+    image: coinly:latest
+    container_name: coinly
+    restart: unless-stopped
+    ports:
+      - "${COINLY_PORT:-9443}:443"
+    volumes:
+      # fullchain.pem + key.pem (см. README → «Деплой»)
+      - ./certs:/etc/nginx/certs:ro
