@@ -73,6 +73,9 @@ export function TxSheet({ from, to, txId }: { from?: string; to?: string; txId?:
     return { income: 'Доход', expense: 'Расход', transfer: 'Перевод' }[kind]
   })()
 
+  // Доход или категорию можно переименовать / сменить иконку прямо отсюда
+  const editTarget = kind === 'income' ? fromCoin : kind === 'expense' ? toCoin : undefined
+
   const fromOptions = roots.filter((c) => (toCoin ? canFlow(c, toCoin) || c.id === fromRoot?.id : c.kind !== 'expense'))
   const toOptions = roots.filter((c) => (fromCoin ? canFlow(fromCoin, c) || c.id === toRoot?.id : true))
   const options = picking === 'from' ? fromOptions : picking === 'to' ? toOptions : []
@@ -150,11 +153,19 @@ export function TxSheet({ from, to, txId }: { from?: string; to?: string; txId?:
       <div className="sheet-head" data-sheet-drag>
         <div className="sheet-title-row" data-sheet-drag>
           <h2 className={`sheet-title kind-${kind}`}>{title}</h2>
-          {existing && (
-            <button type="button" className="icon-btn danger" onClick={remove} aria-label="Удалить">
-              <Icon name="trash" />
-            </button>
-          )}
+          <span className="title-actions">
+            {editTarget && (
+              <button type="button" className="icon-btn" aria-label={`Изменить «${editTarget.name}»`}
+                onClick={() => ui.open({ type: 'coin', id: editTarget.id, kind: editTarget.kind })}>
+                <Icon name="pencil" />
+              </button>
+            )}
+            {existing && (
+              <button type="button" className="icon-btn danger" onClick={remove} aria-label="Удалить">
+                <Icon name="trash" />
+              </button>
+            )}
+          </span>
         </div>
         <div className="flow" data-sheet-drag>
           {slot('from', fromRoot)}

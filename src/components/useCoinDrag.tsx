@@ -7,12 +7,15 @@ import { Spring, VelocityTracker } from '../utils/spring'
 import { CoinDisc } from './Coin'
 
 const LONG_PRESS = 220
+/** Удержание категории (её нельзя тащить) открывает редактор */
+const EDIT_PRESS = 450
 const SLOP = 8
 
 interface Options {
   map: CoinMap
   onTap: (coin: Coin) => void
   onDrop: (from: Coin, to: Coin) => void
+  onLongPress?: (coin: Coin) => void
 }
 
 interface Gesture {
@@ -28,6 +31,7 @@ interface Gesture {
   originY: number
   mouse: boolean
   started: boolean
+  longPressed?: boolean
   timer?: ReturnType<typeof setTimeout>
   over: string | null
 }
@@ -110,6 +114,14 @@ export function useCoinDrag(options: Options) {
     el.classList.add('pressed') // мгновенный отклик на нажатие
     const draggable = coin.kind !== 'expense'
     if (draggable && !gest.mouse) gest.timer = setTimeout(() => g.current === gest && begin(gest, gest.sx, gest.sy), LONG_PRESS)
+    if (!draggable && opts.current.onLongPress)
+      gest.timer = setTimeout(() => {
+        if (g.current !== gest) return
+        gest.longPressed = true
+        el.classList.remove('pressed')
+        haptic.drag()
+        opts.current.onLongPress?.(coin)
+      }, EDIT_PRESS)
     g.current = gest
   }
 
@@ -141,6 +153,7 @@ export function useCoinDrag(options: Options) {
       const gest = g.current
       if (!gest || e.pointerId !== gest.pointerId) return
       clear(gest)
+      if (gest.longPressed) return
       if (!gest.started) {
         if (!cancelled) {
           haptic.tap()

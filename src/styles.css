@@ -928,6 +928,11 @@ button.row:active,
   min-height: 36px;
   margin-bottom: 12px;
 }
+.title-actions {
+  display: flex;
+  gap: 4px;
+  margin-right: -6px;
+}
 .sheet-title {
   font-size: 1.375rem;
   font-weight: 700;

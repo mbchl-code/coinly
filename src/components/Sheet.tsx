@@ -16,6 +16,9 @@ export function Sheet({ children, label }: { children: ReactNode; label: string 
   const spring = useRef<Spring | null>(null)
   const drag = useRef<{ startY: number; from: number; id: number } | null>(null)
   const tracker = useRef(new VelocityTracker())
+  // Закрываем по фону, только если нажатие началось на фоне: после тапа по монете
+  // браузер шлёт запоздалый синтетический click, и он не должен сразу закрыть лист
+  const pressedBackdrop = useRef(false)
 
   const height = () => panel.current?.offsetHeight || window.innerHeight
 
@@ -81,7 +84,15 @@ export function Sheet({ children, label }: { children: ReactNode; label: string 
 
   return createPortal(
     <div ref={rootEl} className="sheet-root">
-      <div ref={backdrop} className="sheet-backdrop" onClick={ui.close} />
+      <div
+        ref={backdrop}
+        className="sheet-backdrop"
+        onPointerDown={() => (pressedBackdrop.current = true)}
+        onClick={() => {
+          if (pressedBackdrop.current) ui.close()
+          pressedBackdrop.current = false
+        }}
+      />
       <div
         ref={panel}
         className="sheet"

@@ -35,6 +35,7 @@ export function Home() {
       else ui.open({ type: 'tx', to: coin.id })
     },
     onDrop: (from, to) => ui.open({ type: 'tx', from: from.id, to: to.id }),
+    onLongPress: (coin) => ui.open({ type: 'coin', id: coin.id, kind: coin.kind }),
   })
 
   const stateOf = (c: CoinT): CoinState => {
@@ -87,7 +88,7 @@ export function Home() {
           <div>
             <b>Удерживайте монету и перетащите</b>
             <br />
-            доход → на счёт, счёт → на категорию или другой счёт. Нажмите на категорию, чтобы быстро записать расход.
+            доход → на счёт, счёт → на категорию или другой счёт. Нажмите на категорию, чтобы быстро записать расход, удержите — чтобы изменить её.
           </div>
           <button type="button" className="icon-btn" aria-label="Скрыть подсказку"
             onClick={() => {

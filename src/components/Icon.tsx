@@ -14,6 +14,7 @@ const paths: Record<string, string> = {
   arrow: 'M5 12h14M13 6l6 6-6 6',
   calendar: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Zm0 4h16M8 2v4M16 2v4',
   check: 'M5 12.5l4.5 4.5L19 7.5',
+  pencil: 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Zm9.5-13.5 4 4',
 }
 
 export function Icon({ name, size = 22, stroke = 1.8 }: { name: keyof typeof paths | string; size?: number; stroke?: number }) {
