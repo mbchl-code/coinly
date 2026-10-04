@@ -23,8 +23,14 @@
   --fill-strong: color-mix(in srgb, var(--hint) 22%, transparent);
   --material: color-mix(in srgb, var(--card) 72%, transparent);
 
-  --safe-top: max(env(safe-area-inset-top), var(--tg-content-safe-area-inset-top, 0px));
-  --safe-bottom: max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px));
+  /* Системная safe area + зона кнопок Telegram (в fullscreen «Закрыть» и «⋯» лежат поверх контента).
+     content-safe-area Telegram отдаёт относительно системной, поэтому складываем */
+  --safe-top: calc(
+    max(env(safe-area-inset-top), var(--tg-safe-area-inset-top, 0px)) + var(--tg-content-safe-area-inset-top, 0px)
+  );
+  --safe-bottom: calc(
+    max(env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px)) + var(--tg-content-safe-area-inset-bottom, 0px)
+  );
   --tabbar-h: 56px;
   --radius: 14px;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);

@@ -13,6 +13,8 @@ interface TgWebApp {
   expand(): void
   isVersionAtLeast(version: string): boolean
   disableVerticalSwipes?(): void
+  requestFullscreen?(): void
+  isFullscreen?: boolean
   setHeaderColor(color: string): void
   setBackgroundColor(color: string): void
   setBottomBarColor?(color: string): void
@@ -61,6 +63,14 @@ export function initTelegram() {
   tg.ready()
   tg.expand()
   if (supports('7.7')) tg.disableVerticalSwipes?.()
+  // На телефонах открываемся на весь экран; на десктопе fullscreen только мешает
+  if (supports('8.0') && (tg.platform === 'ios' || tg.platform === 'android')) {
+    const sync = () => document.documentElement.classList.toggle('fullscreen', !!tg.isFullscreen)
+    tg.onEvent('fullscreenChanged', sync)
+    tg.onEvent('fullscreenFailed', sync)
+    tg.requestFullscreen?.()
+    sync()
+  }
   const applyColors = () => {
     setScheme(tg.colorScheme === 'dark')
     const bg = tg.themeParams.secondary_bg_color ?? tg.themeParams.bg_color
