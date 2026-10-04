@@ -14,6 +14,8 @@
   <img src="docs/screenshots/debts.png" width="200" alt="Debts" />
 </p>
 
+<p align="center"><b>Try it in Telegram: <a href="https://t.me/thecoinlybot">@thecoinlybot</a></b></p>
+
 > The interface is in Russian. The screenshots use demo data.
 
 ## Features
