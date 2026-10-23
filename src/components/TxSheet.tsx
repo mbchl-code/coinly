@@ -70,11 +70,13 @@ export function TxSheet({ from, to, txId }: { from?: string; to?: string; txId?:
       if (toCoin?.kind === 'debt') return toCoin.direction === 'lent' ? 'Дать в долг' : 'Вернуть долг'
       return fromCoin?.direction === 'lent' ? 'Мне вернули долг' : 'Взять в долг'
     }
-    return { income: 'Доход', expense: 'Расход', transfer: 'Перевод' }[kind]
+    return { income: 'Доход', expense: 'Расход', refund: 'Возврат', transfer: 'Перевод' }[kind]
   })()
 
   // Доход или категорию можно переименовать / сменить иконку прямо отсюда
-  const editTarget = kind === 'income' ? fromCoin : kind === 'expense' ? toCoin : undefined
+  const editTarget = kind === 'income' || kind === 'refund' ? fromCoin : kind === 'expense' ? toCoin : undefined
+  // Расход ⇄ возврат: меняем направление между счётом и категорией
+  const canSwap = kind === 'expense' || kind === 'refund'
 
   const fromOptions = roots.filter((c) => (toCoin ? canFlow(c, toCoin) || c.id === fromRoot?.id : c.kind !== 'expense'))
   const toOptions = roots.filter((c) => (fromCoin ? canFlow(fromCoin, c) || c.id === toRoot?.id : true))
@@ -169,7 +171,20 @@ export function TxSheet({ from, to, txId }: { from?: string; to?: string; txId?:
         </div>
         <div className="flow" data-sheet-drag>
           {slot('from', fromRoot)}
-          <span className="flow-arrow"><Icon name="arrow" /></span>
+          {canSwap ? (
+            <button type="button" className="flow-arrow"
+              aria-label={kind === 'expense' ? 'Сделать возвратом' : 'Сделать расходом'}
+              onClick={() => {
+                haptic.select()
+                setFromId(toId)
+                setToId(fromId)
+                setPicking(null)
+              }}>
+              <Icon name="swap" size={20} />
+            </button>
+          ) : (
+            <span className="flow-arrow"><Icon name="arrow" /></span>
+          )}
           {slot('to', toRoot)}
         </div>
       </div>
@@ -194,7 +209,7 @@ export function TxSheet({ from, to, txId }: { from?: string; to?: string; txId?:
         </div>
       )}
 
-      {subRow(fromRoot?.kind === 'income' ? fromRoot : undefined, fromId, setFromId)}
+      {subRow(fromRoot?.kind === 'income' || fromRoot?.kind === 'expense' ? fromRoot : undefined, fromId, setFromId)}
       {subRow(toRoot?.kind === 'expense' ? toRoot : undefined, toId, setToId)}
 
       <button type="button" key={`a${shake}`} className={`amount kind-${kind}${focus === 'main' ? ' focused' : ''}${shake ? ' shake' : ''}`}

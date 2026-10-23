@@ -10,7 +10,7 @@ import type { Coin, CoinKind } from '../types'
 import { useUI } from '../ui'
 import { parseNumber } from '../utils/calc'
 
-const KIND_TYPES: Record<string, string> = { income: 'Доход', expense: 'Расход', transfer: 'Перевод', debt: 'Долг' }
+const KIND_TYPES: Record<string, string> = { income: 'Доход', expense: 'Расход', refund: 'Возврат', transfer: 'Перевод', debt: 'Долг' }
 
 export function Settings() {
   const { state, dispatch } = useStore()
