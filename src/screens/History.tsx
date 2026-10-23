@@ -13,6 +13,7 @@ const FILTERS: { id: TxKind | 'all'; label: string }[] = [
   { id: 'all', label: 'Все' },
   { id: 'expense', label: 'Расходы' },
   { id: 'income', label: 'Доходы' },
+  { id: 'refund', label: 'Возвраты' },
   { id: 'transfer', label: 'Переводы' },
   { id: 'debt', label: 'Долги' },
 ]
@@ -68,10 +69,10 @@ export function History() {
               const kind = txKind(map, t)
               const from = map.get(t.from)
               const to = map.get(t.to)
-              const main = kind === 'income' || from?.kind === 'debt' ? from : to
+              const main = kind === 'income' || kind === 'refund' || from?.kind === 'debt' ? from : to
               if (!from || !to || !main) return null
-              const { amount, currency } = txSide(map, base, t, kind === 'income' ? 'to' : 'from')
-              const sign = kind === 'income' ? '+' : kind === 'expense' ? '−' : ''
+              const { amount, currency } = txSide(map, base, t, kind === 'income' || kind === 'refund' ? 'to' : 'from')
+              const sign = kind === 'income' || kind === 'refund' ? '+' : kind === 'expense' ? '−' : ''
               const parent = main.parentId ? map.get(main.parentId) : undefined
               return (
                 <button key={t.id} type="button" className="row"
@@ -82,6 +83,7 @@ export function History() {
                     <span className="row-sub">
                       {kind === 'income' ? to.name
                         : kind === 'expense' ? from.name
+                        : kind === 'refund' ? `Возврат · ${to.name}`
                         : kind === 'debt' ? debtLabel(from.kind === 'debt' ? from : to, from.kind === 'debt' ? to : from, from.kind === 'debt')
                         : `${from.name} → ${to.name}`}
                       {t.note ? ` · ${t.note}` : ''}

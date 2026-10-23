@@ -21,7 +21,7 @@ export function Ring({ progress, over }: { progress: number; over: boolean }) {
     <svg className="coin-ring" viewBox="0 0 64 64" aria-hidden="true">
       <circle cx="32" cy="32" r={r} className="ring-track" />
       <circle cx="32" cy="32" r={r} className={over ? 'ring-bar over' : 'ring-bar'}
-        strokeDasharray={`${Math.min(progress, 1) * c} ${c}`} />
+        strokeDasharray={`${Math.max(0, Math.min(progress, 1)) * c} ${c}`} />
     </svg>
   )
 }

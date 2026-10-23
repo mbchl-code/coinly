@@ -44,4 +44,5 @@ export interface State {
   updatedAt: number
 }
 
-export type TxKind = 'income' | 'expense' | 'transfer' | 'debt'
+/** refund — возврат: деньги из категории расходов возвращаются на счёт */
+export type TxKind = 'income' | 'expense' | 'refund' | 'transfer' | 'debt'

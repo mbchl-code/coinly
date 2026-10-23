@@ -15,6 +15,8 @@ export function canFlow(a: Coin, b: Coin) {
   if (a.kind === 'income') return b.kind === 'account'
   if (a.kind === 'account') return b.kind === 'account' || b.kind === 'expense' || b.kind === 'debt'
   if (a.kind === 'debt') return b.kind === 'account'
+  // возврат: деньги из категории идут обратно на счёт
+  if (a.kind === 'expense') return b.kind === 'account'
   return false
 }
 
@@ -23,6 +25,7 @@ export function txKind(map: CoinMap, tx: Tx): TxKind {
   const to = map.get(tx.to)
   if (from?.kind === 'income') return 'income'
   if (to?.kind === 'expense') return 'expense'
+  if (from?.kind === 'expense') return 'refund'
   if (from?.kind === 'debt' || to?.kind === 'debt') return 'debt'
   return 'transfer'
 }
@@ -66,7 +69,8 @@ export function balances(s: State) {
   return res
 }
 
-/** Обороты по доходам/категориям за месяц в базовой валюте; подкатегории учитываются и в родителе */
+/** Обороты по доходам/категориям за месяц в базовой валюте; подкатегории учитываются и в родителе.
+ *  Возвраты уменьшают расходы своей категории */
 export function monthTotals(s: State, month: string) {
   const map = coinMap(s)
   const res = new Map<string, number>()
@@ -90,9 +94,15 @@ export function monthTotals(s: State, month: string) {
       const v = toBase(s, amount, currency)
       expense += v
       add(map.get(tx.to), v)
+    } else if (kind === 'refund') {
+      const { amount, currency } = txSide(map, s.baseCurrency, tx, 'to')
+      const v = toBase(s, amount, currency)
+      expense -= v
+      add(map.get(tx.from), -v)
     }
   }
-  return { byCoin: res, income, expense }
+  // возвраты сверх трат месяца не превращают расходы в «доход»
+  return { byCoin: res, income, expense: Math.max(expense, 0) }
 }
 
 export function netWorth(s: State, bal: Map<string, number>) {
