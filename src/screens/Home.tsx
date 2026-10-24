@@ -86,7 +86,7 @@ export function Home() {
 
       <figure className="quote">
         <blockquote>{quoteOfSession.text}</blockquote>
-        {quoteOfSession.author && <figcaption>— {quoteOfSession.author}</figcaption>}
+        <figcaption>— {quoteOfSession.author}</figcaption>
       </figure>
 
       {hint && (
