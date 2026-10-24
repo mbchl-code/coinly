@@ -41,4 +41,4 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes root@"$HOST"
 
       - name: Smoke check
-        run: curl -fsS --retry 5 --retry-delay 3 -o /dev/null https://coinly.duckdns.org:9443/
+        run: curl -fsS --retry 10 --retry-delay 3 --retry-all-errors -o /dev/null https://coinly.duckdns.org:9443/
