@@ -4,6 +4,7 @@ import { Icon } from '../components/Icon'
 import { MonthBar } from '../components/MonthBar'
 import { useCoinDrag } from '../components/useCoinDrag'
 import { balances, canFlow, coinMap, monthTotals, netWorth, rootsOf } from '../selectors'
+import { quoteOfSession } from '../quotes'
 import { useStore } from '../store'
 import type { Coin as CoinT, CoinKind } from '../types'
 import { useUI } from '../ui'
@@ -82,6 +83,11 @@ export function Home() {
           <span className="stat expense">−{money(totals.expense, base)}</span>
         </div>
       </header>
+
+      <figure className="quote">
+        <blockquote>{quoteOfSession.text}</blockquote>
+        {quoteOfSession.author && <figcaption>— {quoteOfSession.author}</figcaption>}
+      </figure>
 
       {hint && (
         <div className="hint-card" role="note">

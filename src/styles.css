@@ -278,6 +278,24 @@ h3 {
   font-size: 0.875rem;
   line-height: 1.4;
 }
+.quote {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.quote blockquote {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-wrap: pretty;
+}
+.quote figcaption {
+  margin-top: 4px;
+  font-size: 0.8125rem;
+  color: var(--hint);
+}
 .hint-card .icon-btn {
   flex: none;
   color: var(--hint);
