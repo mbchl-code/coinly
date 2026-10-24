@@ -1181,6 +1181,14 @@ button.flow-arrow {
   font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
+.summary-grid .summary-note {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-top: 10px;
+  box-shadow: inset 0 0.5px 0 var(--sep);
+}
 .chart-card {
   display: flex;
   flex-direction: column;

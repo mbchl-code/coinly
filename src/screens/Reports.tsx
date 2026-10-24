@@ -23,7 +23,7 @@ export function Reports() {
     .filter((i) => i.value > 0)
     .sort((a, b) => b.value - a.value)
   const sum = mode === 'expense' ? totals.expense : totals.income
-  const diff = totals.income - totals.expense
+  const diff = totals.income + totals.refundExtra - totals.expense
 
   return (
     <div className="page">
@@ -45,6 +45,12 @@ export function Reports() {
           <span className="muted">Итог месяца</span>
           <b className={diff < 0 ? 'neg' : ''}>{diff > 0 ? '+' : ''}{money(diff, base)}</b>
         </div>
+        {totals.refundExtra > 0 && (
+          <div className="summary-note">
+            <span className="muted">Возвраты сверх трат</span>
+            <b className="kind-refund">+{money(totals.refundExtra, base)}</b>
+          </div>
+        )}
       </div>
 
       <div className="segmented" role="radiogroup">
@@ -67,7 +73,8 @@ export function Reports() {
       {items.length > 0 && (
         <div className="card list">
           {items.map(({ coin, value: v }) => {
-            const kids = childrenOf(state, coin.id).filter((k) => value(k) > 0)
+            // подкатегория с одними возвратами — с минусом, чтобы строки складывались в сумму категории
+            const kids = childrenOf(state, coin.id).filter((k) => Math.abs(value(k)) > 0.009)
             const pct = sum ? (v / sum) * 100 : 0
             const expanded = open === coin.id
             return (

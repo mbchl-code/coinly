@@ -7,7 +7,7 @@ import { Spring, VelocityTracker } from '../utils/spring'
 import { CoinDisc } from './Coin'
 
 const LONG_PRESS = 220
-/** Удержание категории (её нельзя тащить) открывает редактор */
+/** Мышь: удержание категории на месте открывает редактор (на таче — поднять и отпустить на месте) */
 const EDIT_PRESS = 450
 const SLOP = 8
 
@@ -31,6 +31,8 @@ interface Gesture {
   originY: number
   mouse: boolean
   started: boolean
+  /** после подъёма палец ушёл дальше SLOP — это перетаскивание, а не «поднял и отпустил» */
+  moved?: boolean
   longPressed?: boolean
   timer?: ReturnType<typeof setTimeout>
   over: string | null
@@ -39,7 +41,8 @@ interface Gesture {
 /**
  * Перетаскивание монет. Тач: удержание 220 мс, затем монета «поднимается» и следует за пальцем 1:1
  * (с учётом точки захвата). Мышь: начинаем после сдвига на 8 px. Отпустили мимо — монета
- * возвращается пружиной, унаследовав скорость пальца.
+ * возвращается пружиной, унаследовав скорость пальца. Категорию, поднятую и отпущенную на месте,
+ * открываем в редакторе (onLongPress).
  */
 export function useCoinDrag(options: Options) {
   const opts = useRef(options)
@@ -76,6 +79,7 @@ export function useCoinDrag(options: Options) {
 
   const begin = (gest: Gesture, x: number, y: number) => {
     const r = gest.disc.getBoundingClientRect()
+    clearTimeout(gest.timer) // мышью потащили раньше, чем сработало удержание-редактор
     gest.started = true
     gest.originX = r.left
     gest.originY = r.top
@@ -112,9 +116,8 @@ export function useCoinDrag(options: Options) {
       over: null,
     }
     el.classList.add('pressed') // мгновенный отклик на нажатие
-    const draggable = coin.kind !== 'expense'
-    if (draggable && !gest.mouse) gest.timer = setTimeout(() => g.current === gest && begin(gest, gest.sx, gest.sy), LONG_PRESS)
-    if (!draggable && opts.current.onLongPress)
+    if (!gest.mouse) gest.timer = setTimeout(() => g.current === gest && begin(gest, gest.sx, gest.sy), LONG_PRESS)
+    else if (coin.kind === 'expense' && opts.current.onLongPress)
       gest.timer = setTimeout(() => {
         if (g.current !== gest) return
         gest.longPressed = true
@@ -133,9 +136,11 @@ export function useCoinDrag(options: Options) {
       if (!gest || e.pointerId !== gest.pointerId) return
       if (!gest.started) {
         if (Math.hypot(e.clientX - gest.sx, e.clientY - gest.sy) < SLOP) return
-        if (gest.mouse && gest.coin.kind !== 'expense') begin(gest, e.clientX, e.clientY)
-        else return clear(gest) // палец поехал до удержания — это скролл
+        // палец поехал до удержания — это скролл; мышь после открытия редактора тоже не тащит
+        if (gest.mouse && !gest.longPressed) begin(gest, e.clientX, e.clientY)
+        else return clear(gest)
       }
+      if (!gest.moved && Math.hypot(e.clientX - gest.sx, e.clientY - gest.sy) >= SLOP) gest.moved = true
       tracker.current.add(e.clientX, e.clientY)
       sp.x.set(e.clientX - gest.offX)
       sp.y.set(e.clientY - gest.offY)
@@ -181,6 +186,7 @@ export function useCoinDrag(options: Options) {
         sp.x.to(gest.originX, { damping: 0.8, response: 0.4, velocity: v.x })
         sp.y.to(gest.originY, { damping: 0.8, response: 0.4, velocity: v.y }, () => setSource(null))
         sp.s.to(1, { damping: 1, response: 0.3 })
+        if (!cancelled && !gest.moved && gest.coin.kind === 'expense') opts.current.onLongPress?.(gest.coin)
       }
     }
 

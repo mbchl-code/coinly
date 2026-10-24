@@ -70,7 +70,8 @@ export function balances(s: State) {
 }
 
 /** Обороты по доходам/категориям за месяц в базовой валюте; подкатегории учитываются и в родителе.
- *  Возвраты уменьшают расходы своей категории */
+ *  Возвраты уменьшают расходы своей категории, но не ниже нуля: остаток идёт в refundExtra,
+ *  так что сумма категорий всегда равна expense */
 export function monthTotals(s: State, month: string) {
   const map = coinMap(s)
   const res = new Map<string, number>()
@@ -80,7 +81,6 @@ export function monthTotals(s: State, month: string) {
     if (c.parentId) res.set(c.parentId, (res.get(c.parentId) ?? 0) + v)
   }
   let income = 0
-  let expense = 0
   for (const tx of s.txs) {
     if (monthOf(tx.date) !== month) continue
     const kind = txKind(map, tx)
@@ -91,18 +91,23 @@ export function monthTotals(s: State, month: string) {
       add(map.get(tx.from), v)
     } else if (kind === 'expense') {
       const { amount, currency } = txSide(map, s.baseCurrency, tx, 'from')
-      const v = toBase(s, amount, currency)
-      expense += v
-      add(map.get(tx.to), v)
+      add(map.get(tx.to), toBase(s, amount, currency))
     } else if (kind === 'refund') {
       const { amount, currency } = txSide(map, s.baseCurrency, tx, 'to')
-      const v = toBase(s, amount, currency)
-      expense -= v
-      add(map.get(tx.from), -v)
+      add(map.get(tx.from), -toBase(s, amount, currency))
     }
   }
-  // возвраты сверх трат месяца не превращают расходы в «доход»
-  return { byCoin: res, income, expense: Math.max(expense, 0) }
+  // Возврат сверх трат категории (купили в прошлом месяце) — не «отрицательный расход», а отдельный приток
+  let expense = 0
+  let refundExtra = 0
+  for (const c of rootsOf(s, 'expense')) {
+    const v = res.get(c.id) ?? 0
+    if (v < 0) {
+      refundExtra -= v
+      res.set(c.id, 0)
+    } else expense += v
+  }
+  return { byCoin: res, income, expense, refundExtra }
 }
 
 export function netWorth(s: State, bal: Map<string, number>) {
