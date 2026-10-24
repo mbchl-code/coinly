@@ -8,6 +8,7 @@ import { History } from './screens/History'
 import { Home } from './screens/Home'
 import { Reports } from './screens/Reports'
 import { Settings } from './screens/Settings'
+import { diag } from './diag'
 import { useUI } from './ui'
 
 function SheetHost() {
@@ -31,6 +32,10 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [tab])
+
+  useEffect(() => {
+    diag('rendered')
+  }, [])
 
   return (
     <>

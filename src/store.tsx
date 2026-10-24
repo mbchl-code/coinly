@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useReducer, useRef, type Dispatch, type ReactNode } from 'react'
 import { createDefaultState } from './defaults'
+import { diag } from './diag'
 import { fetchRates, RATES_TTL } from './rates'
 import { usedCurrencies } from './selectors'
 import { loadState, saveState } from './storage'
@@ -82,7 +83,18 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
   const loaded = useRef(false)
 
   useEffect(() => {
-    loadState().then((s) => dispatch({ type: 'load', state: s ?? createDefaultState() }))
+    const started = performance.now()
+    const stuck = setTimeout(() => diag('stuck', 'state not loaded after 8s'), 8000)
+    loadState()
+      .then((s) => {
+        diag('loaded', `${s ? 'saved' : 'new'} ${Math.round(performance.now() - started)}ms`)
+        dispatch({ type: 'load', state: s ?? createDefaultState() })
+      })
+      .catch((e) => {
+        diag('load-failed', String(e?.stack ?? e))
+        dispatch({ type: 'load', state: createDefaultState() })
+      })
+      .finally(() => clearTimeout(stuck))
   }, [])
 
   useEffect(() => {

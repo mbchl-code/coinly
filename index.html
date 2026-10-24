@@ -6,6 +6,26 @@
     <meta name="color-scheme" content="light dark" />
     <title>Coinly</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🪙</text></svg>" />
+    <script>
+      // Ранний сбор ошибок: ловит и падения до старта React (в т.ч. незагрузившиеся скрипты)
+      ;(function () {
+        var sent = 0
+        window.__coinlyDiag = function (kind, msg) {
+          if (sent++ > 30) return
+          try {
+            new Image().src = './__diag?k=' + encodeURIComponent(kind) + '&m=' + encodeURIComponent(String(msg).slice(0, 400)) + '&t=' + Date.now()
+          } catch (e) {}
+        }
+        addEventListener('error', function (e) {
+          var src = e.target && e.target.src
+          __coinlyDiag('error', src ? 'resource failed: ' + src : e.message + ' @' + String(e.filename).split('/').pop() + ':' + e.lineno + ':' + e.colno)
+        }, true)
+        addEventListener('unhandledrejection', function (e) {
+          var r = e.reason
+          __coinlyDiag('reject', (r && (r.stack || r.message)) || r)
+        })
+      })()
+    </script>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
   </head>
   <body>
