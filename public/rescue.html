@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Coinly — восстановление</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      :root { --bg: #fff; --fg: #111; --muted: #777; --card: #f2f2f5; --accent: #2a7af5; --bad: #d33; }
+      @media (prefers-color-scheme: dark) { :root { --bg: #111; --fg: #eee; --muted: #999; --card: #1d1d20; } }
+      body { margin: 0; padding: 16px; font: 15px/1.4 -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+      h1 { font-size: 20px; margin: 0 0 4px; }
+      p { margin: 4px 0; }
+      .muted { color: var(--muted); font-size: 13px; }
+      .card { background: var(--card); border-radius: 14px; padding: 14px; margin: 12px 0; }
+      .card h2 { font-size: 16px; margin: 0 0 6px; }
+      .tag { display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 8px; background: var(--accent); color: #fff; margin-left: 6px; }
+      button { font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; margin: 8px 8px 0 0; background: var(--accent); color: #fff; }
+      button.secondary { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+      .err { color: var(--bad); }
+      textarea { width: 100%; box-sizing: border-box; height: 120px; margin-top: 8px; font: 11px monospace; }
+    </style>
+  </head>
+  <body>
+    <h1>Восстановление данных</h1>
+    <p class="muted">Страница только читает данные. Ничего не меняется, пока вы не нажмёте «Восстановить».</p>
+    <div id="out"><p>Читаю CloudStorage…</p></div>
+    <script>
+      ;(function () {
+        var LS_KEY = 'coinly:state'
+        var CHUNK = 4000
+        var tg = window.Telegram && window.Telegram.WebApp
+        var out = document.getElementById('out')
+        var versions = []
+
+        function call(fn) {
+          return new Promise(function (resolve, reject) {
+            fn(function (err, res) { err ? reject(new Error(err)) : resolve(res) })
+          })
+        }
+        var cs = {
+          keys: function () { return call(function (cb) { tg.CloudStorage.getKeys(cb) }) },
+          get: function (keys) { return call(function (cb) { tg.CloudStorage.getItems(keys, cb) }) },
+          set: function (k, v) { return call(function (cb) { tg.CloudStorage.setItem(k, v, cb) }) },
+          remove: function (keys) { return call(function (cb) { tg.CloudStorage.removeItems(keys, cb) }) },
+        }
+
+        function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c] }) }
+        function fmt(ts) { return ts ? new Date(ts).toLocaleString('ru-RU') : '—' }
+
+        function summary(state) {
+          var txs = state.txs || []
+          var lastDate = '', lastCreated = 0
+          txs.forEach(function (t) {
+            if (t.date > lastDate) lastDate = t.date
+            if (t.createdAt > lastCreated) lastCreated = t.createdAt
+          })
+          return { txs: txs.length, coins: (state.coins || []).length, lastDate: lastDate || '—', lastCreated: lastCreated, updatedAt: state.updatedAt }
+        }
+
+        async function readAll() {
+          var keys = await cs.keys()
+          var all = {}
+          for (var i = 0; i < keys.length; i += 50) {
+            var res = await cs.get(keys.slice(i, i + 50))
+            Object.assign(all, res)
+          }
+          return all
+        }
+
+        function slotJson(all, slot) {
+          var json = '', n = 0
+          while (all[slot + n] != null) json += all[slot + n++]
+          return { json: json, n: n }
+        }
+
+        function render(meta, err) {
+          var html = ''
+          if (err) html += '<p class="err">' + esc(err) + '</p>'
+          html += '<p class="muted">Активная копия в облаке: ' + esc(meta ? meta.slot + ' (' + meta.n + ' частей)' : 'нет') + '</p>'
+          versions.forEach(function (v, i) {
+            html += '<div class="card"><h2>' + esc(v.title) + (v.active ? '<span class="tag">сейчас в приложении</span>' : '') + '</h2>'
+            if (v.error) {
+              html += '<p class="err">' + esc(v.error) + '</p></div>'
+              return
+            }
+            var s = v.summary
+            html += '<p>Операций: <b>' + s.txs + '</b>, монет: ' + s.coins + '</p>'
+            html += '<p>Последняя операция: <b>' + esc(s.lastDate) + '</b> (внесена ' + esc(fmt(s.lastCreated)) + ')</p>'
+            html += '<p class="muted">updatedAt: ' + esc(fmt(s.updatedAt)) + '</p>'
+            html += '<button data-restore="' + i + '">Восстановить эту версию</button>'
+            html += '<button class="secondary" data-copy="' + i + '">Показать JSON</button>'
+            html += '<textarea id="json' + i + '" hidden readonly></textarea></div>'
+          })
+          out.innerHTML = html
+        }
+
+        async function restore(v) {
+          var meta = versions.meta
+          var state = JSON.parse(v.json)
+          // Свежий updatedAt, чтобы устаревшие локальные копии на других устройствах не перебили восстановленную
+          state.updatedAt = Date.now()
+          var json = JSON.stringify(state)
+          var n = Math.ceil(json.length / CHUNK)
+          // Пишем в слот, где сейчас лежит плохая версия; вторая копия остаётся нетронутой как запасная
+          var slot = meta ? meta.slot : 'a'
+          for (var i = 0; i < n; i += 50) {
+            var batch = []
+            for (var j = i; j < Math.min(n, i + 50); j++) batch.push(cs.set(slot + j, json.slice(j * CHUNK, (j + 1) * CHUNK)))
+            await Promise.all(batch)
+          }
+          await cs.set('meta', JSON.stringify({ slot: slot, n: n, at: state.updatedAt }))
+          var stale = (await cs.keys()).filter(function (k) {
+            var m = /^([ab])(\d+)$/.exec(k)
+            return m && m[1] === slot && Number(m[2]) >= n
+          })
+          if (stale.length) await cs.remove(stale)
+          try { localStorage.setItem(LS_KEY, json) } catch (e) {}
+        }
+
+        out.addEventListener('click', function (e) {
+          var t = e.target
+          if (t.dataset.copy != null) {
+            var ta = document.getElementById('json' + t.dataset.copy)
+            ta.value = versions[t.dataset.copy].json
+            ta.hidden = false
+            ta.select()
+            try { navigator.clipboard.writeText(ta.value) } catch (err) {}
+          }
+          if (t.dataset.restore != null) {
+            var v = versions[t.dataset.restore]
+            tg.showConfirm('Восстановить версию «' + v.title + '» (' + v.summary.txs + ' операций)?', function (ok) {
+              if (!ok) return
+              t.disabled = true
+              t.textContent = 'Записываю…'
+              restore(v).then(function () {
+                tg.showAlert('Готово. Закройте эту страницу и откройте Coinly заново.')
+                t.textContent = 'Восстановлено'
+              }, function (err) {
+                t.disabled = false
+                t.textContent = 'Восстановить эту версию'
+                tg.showAlert('Ошибка записи: ' + err.message)
+              })
+            })
+          }
+        })
+
+        function addVersion(title, json, extra) {
+          var v = Object.assign({ title: title, json: json }, extra)
+          try {
+            var state = JSON.parse(json)
+            if (!state || state.v !== 1 || !Array.isArray(state.txs)) throw new Error('не похоже на данные Coinly')
+            v.summary = summary(state)
+          } catch (e) {
+            v.error = 'Копия повреждена: ' + e.message
+          }
+          versions.push(v)
+        }
+
+        async function main() {
+          if (!tg || !tg.CloudStorage || tg.platform === 'unknown') {
+            out.innerHTML = '<p class="err">Откройте эту страницу внутри Telegram, через бота.</p>'
+            return
+          }
+          tg.ready()
+          tg.expand()
+          var meta = null, err = ''
+          try {
+            var all = await readAll()
+            meta = all.meta ? JSON.parse(all.meta) : null
+            versions.meta = meta
+            ;['a', 'b'].forEach(function (slot) {
+              var r = slotJson(all, slot)
+              if (!r.n) return
+              addVersion('Облако, копия ' + slot, r.json, { slot: slot, active: meta && meta.slot === slot })
+            })
+          } catch (e) {
+            err = 'Не удалось прочитать облако: ' + e.message
+          }
+          var local = null
+          try { local = localStorage.getItem(LS_KEY) } catch (e) {}
+          if (local) addVersion('Копия на этом устройстве', local, {})
+          render(meta, err)
+        }
+        main()
+      })()
+    </script>
+  </body>
+</html>
