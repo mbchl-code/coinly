@@ -8,32 +8,21 @@ import { initTelegram, tg } from './telegram'
 import { UIProvider } from './ui'
 import './styles.css'
 
-declare global {
-  interface Window {
-    /** Выставляется в index.html, когда открыта страница восстановления */
-    __coinlyRescue?: boolean
-  }
+diag('boot', tg ? `${tg.platform} v${tg.version} ${innerWidth}x${innerHeight}` : `browser ${innerWidth}x${innerHeight}`)
+try {
+  initTelegram()
+} catch (e) {
+  diag('tg-init-failed', String((e as Error)?.stack ?? e))
 }
 
-function start() {
-  diag('boot', tg ? `${tg.platform} v${tg.version} ${innerWidth}x${innerHeight}` : `browser ${innerWidth}x${innerHeight}`)
-  try {
-    initTelegram()
-  } catch (e) {
-    diag('tg-init-failed', String((e as Error)?.stack ?? e))
-  }
-
-  createRoot(document.getElementById('root')!).render(
-    <StrictMode>
-      <ErrorBoundary>
-        <StoreProvider fallback={<div className="splash">🪙</div>}>
-          <UIProvider>
-            <App />
-          </UIProvider>
-        </StoreProvider>
-      </ErrorBoundary>
-    </StrictMode>,
-  )
-}
-
-if (!window.__coinlyRescue) start()
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <ErrorBoundary>
+      <StoreProvider fallback={<div className="splash">🪙</div>}>
+        <UIProvider>
+          <App />
+        </UIProvider>
+      </StoreProvider>
+    </ErrorBoundary>
+  </StrictMode>,
+)

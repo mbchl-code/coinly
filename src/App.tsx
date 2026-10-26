@@ -9,6 +9,7 @@ import { Home } from './screens/Home'
 import { Reports } from './screens/Reports'
 import { Settings } from './screens/Settings'
 import { diag } from './diag'
+import { subscribeStatus, type SyncStatus } from './storage'
 import { useUI } from './ui'
 
 function SheetHost() {
@@ -25,6 +26,19 @@ function SheetHost() {
       <CoinSheet id={sheet.id} kind={sheet.kind} parentId={sheet.parentId} />
     </Sheet>
   )
+}
+
+/** Заметное предупреждение, когда изменения не доходят до сервера */
+function SyncBanner() {
+  const [s, setS] = useState<SyncStatus | null>(null)
+  useEffect(() => subscribeStatus(setS), [])
+  if (!s) return null
+  const text = s.authError
+    ? 'Сессия устарела — закройте и снова откройте Coinly'
+    : s.offline && s.pending
+      ? `Нет связи с сервером · не отправлено: ${s.pending}`
+      : null
+  return text ? <div className="sync-banner" role="status">{text}</div> : null
 }
 
 export default function App() {
@@ -46,6 +60,7 @@ export default function App() {
         {tab === 'debts' && <Debts />}
         {tab === 'settings' && <Settings />}
       </main>
+      <SyncBanner />
       <TabBar tab={tab} onChange={setTab} />
       <SheetHost />
     </>

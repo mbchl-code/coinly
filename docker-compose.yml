@@ -4,8 +4,21 @@ services:
     image: coinly:latest
     container_name: coinly
     restart: unless-stopped
+    depends_on:
+      - api
     ports:
       - "${COINLY_PORT:-9443}:443"
     volumes:
       # fullchain.pem + key.pem (см. README → «Деплой»)
       - ./certs:/etc/nginx/certs:ro
+
+  api:
+    build: ./server
+    image: coinly-api:latest
+    container_name: coinly-api
+    restart: unless-stopped
+    # BOT_TOKEN=… — только на сервере, в git не попадает
+    env_file: .env
+    volumes:
+      # SQLite и ежедневные бэкапы; каталог должен принадлежать uid 1000 (пользователь node в контейнере)
+      - ./data:/data

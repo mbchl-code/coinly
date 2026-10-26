@@ -125,12 +125,9 @@ function call<T>(fn: (cb: Cb<T>) => void): Promise<T> {
   )
 }
 
-/** Промисифицированный CloudStorage (Bot API 6.9+), null вне Telegram */
+/** CloudStorage (Bot API 6.9+) только для чтения: оттуда данные один раз переезжают на сервер */
 export const cloud = supports('6.9')
   ? {
       getItems: (keys: string[]) => call<Record<string, string>>((cb) => tg!.CloudStorage.getItems(keys, cb)),
-      setItem: (key: string, value: string) => call<boolean>((cb) => tg!.CloudStorage.setItem(key, value, cb)),
-      removeItems: (keys: string[]) => call<boolean>((cb) => tg!.CloudStorage.removeItems(keys, cb)),
-      getKeys: () => call<string[]>((cb) => tg!.CloudStorage.getKeys(cb)),
     }
   : null

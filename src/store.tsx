@@ -1,13 +1,13 @@
-import { createContext, useContext, useEffect, useReducer, useRef, type Dispatch, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type Dispatch, type ReactNode } from 'react'
 import { createDefaultState } from './defaults'
 import { diag } from './diag'
 import { fetchRates, RATES_TTL } from './rates'
 import { usedCurrencies } from './selectors'
-import { loadState, saveState } from './storage'
+import { loadState, onRemoteState, online, record, saveRates } from './storage'
+import { diff } from './sync'
 import type { Coin, State, Tx } from './types'
 
 export type Action =
-  | { type: 'load'; state: State }
   | { type: 'addTx'; tx: Tx }
   | { type: 'updateTx'; tx: Tx }
   | { type: 'deleteTx'; id: string }
@@ -20,8 +20,6 @@ export type Action =
 
 function reduce(s: State, a: Action): State {
   switch (a.type) {
-    case 'load':
-      return a.state
     case 'addTx':
       return { ...s, txs: [...s.txs, a.tx] }
     case 'updateTx':
@@ -65,12 +63,6 @@ function reduce(s: State, a: Action): State {
   }
 }
 
-function root(s: State | null, a: Action): State | null {
-  if (a.type === 'load') return a.state
-  if (!s) return s
-  return { ...reduce(s, a), updatedAt: Date.now() }
-}
-
 interface Store {
   state: State
   dispatch: Dispatch<Action>
@@ -79,32 +71,47 @@ interface Store {
 const Ctx = createContext<Store | null>(null)
 
 export function StoreProvider({ children, fallback }: { children: ReactNode; fallback: ReactNode }) {
-  const [state, dispatch] = useReducer(root, null)
-  const loaded = useRef(false)
+  const [state, setState] = useState<State | null>(null)
+  const [failed, setFailed] = useState(false)
+  const ref = useRef<State | null>(null)
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setFailed(false)
     const started = performance.now()
     const stuck = setTimeout(() => diag('stuck', 'state not loaded after 8s'), 8000)
     loadState()
       .then((s) => {
-        diag('loaded', `${s ? 'saved' : 'new'} ${Math.round(performance.now() - started)}ms`)
-        dispatch({ type: 'load', state: s ?? createDefaultState() })
+        diag('loaded', `${online ? 'server' : 'local'} ${Math.round(performance.now() - started)}ms`)
+        ref.current = s
+        setState(s)
       })
       .catch((e) => {
+        // Без данных не стартуем: пустое состояние нельзя выдавать за настоящее
         diag('load-failed', String(e?.stack ?? e))
-        dispatch({ type: 'load', state: createDefaultState() })
+        setFailed(true)
       })
       .finally(() => clearTimeout(stuck))
   }, [])
 
   useEffect(() => {
-    if (!state) return
-    if (!loaded.current) {
-      loaded.current = true
-      return
-    }
-    saveState(state)
-  }, [state])
+    onRemoteState((s) => {
+      ref.current = s
+      setState(s)
+    })
+    load()
+  }, [load])
+
+  // Каждое действие превращается в набор изменений отдельных сущностей и уходит на сервер
+  const dispatch = useCallback((a: Action) => {
+    const prev = ref.current
+    if (!prev) return
+    const next = reduce(prev, a)
+    if (next === prev) return
+    ref.current = next
+    setState(next)
+    if (a.type === 'setRates') saveRates(a.rates, next.ratesAt, next)
+    else record(a.type, diff(prev, next), next)
+  }, [])
 
   // Курсы валют: обновляем, если устарели и есть счета в других валютах
   const codes = state ? usedCurrencies(state).sort().join(',') : ''
@@ -118,6 +125,17 @@ export function StoreProvider({ children, fallback }: { children: ReactNode; fal
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [codes, state?.baseCurrency, missing])
 
+  if (failed)
+    return (
+      <div className="crash">
+        <div className="empty-icon">📡</div>
+        <b>Нет связи с сервером</b>
+        <p>Данные хранятся на сервере Coinly. Проверьте интернет и попробуйте ещё раз.</p>
+        <button type="button" className="btn-primary" onClick={load}>
+          Повторить
+        </button>
+      </div>
+    )
   if (!state) return <>{fallback}</>
   return <Ctx.Provider value={{ state, dispatch }}>{children}</Ctx.Provider>
 }

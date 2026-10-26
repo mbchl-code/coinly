@@ -31,10 +31,13 @@
 
 ## How it works
 
-Coinly is a static app with no backend of its own.
+Coinly is a static front end plus a small API (`server/`, Node 24 + built-in SQLite).
 
-- User data is stored in [Telegram CloudStorage](https://core.telegram.org/bots/webapps#cloudstorage), so it syncs across the user's devices. A copy is kept in `localStorage` so the app opens instantly.
-- CloudStorage caps each value at 4 KB, so the state is split into chunks. Writes alternate between two slots (`a*` / `b*`) and then flip a `meta` pointer, which means an interrupted save never corrupts data. The quota fits roughly 20,000 transactions.
+- User data lives in SQLite on the server. Requests are authenticated with the Mini App's signed `initData`, checked against the bot token.
+- Every user action is sent as a batch of per-entity changes (put/delete one coin or transaction, reorder), never as a whole-state overwrite. Batches are idempotent by `opId`, deletes are soft, and every batch is kept in an append-only `ops` journal. So no device, however stale its cache, can wipe data written from another device.
+- The device keeps a cache of the last server state and an outbox of unsent changes, so the app opens instantly and works offline; the outbox is flushed when the connection returns.
+- A daily copy of the database is written to `data/backups/` (30 days kept).
+- Earlier versions stored data in Telegram CloudStorage; on first launch it is read once and imported into the server.
 - Exchange rates come from the open [fawazahmed0/exchange-api](https://github.com/fawazahmed0/exchange-api), no API key required.
 
 The data model is simple: there are **coins** (income source, account, category, debt) and **transactions** between them. The transaction type is derived from which kinds of coins it connects.
@@ -42,12 +45,17 @@ The data model is simple: there are **coins** (income source, account, category,
 ```
 src/
   telegram.ts       typed wrapper around the Telegram WebApp API
-  storage.ts        localStorage + CloudStorage (chunking, double buffering)
-  store.tsx         useReducer state, autosave, exchange rates
+  storage.ts        server API, offline cache and outbox, CloudStorage import
+  sync.ts           state diff → per-entity changes, and applying them back
+  store.tsx         state, dispatch → changes, exchange rates
   selectors.ts      balances, monthly totals, currency conversion
   utils/spring.ts   springs (damping/response), fling projection, rubber-banding
   components/       coins and drag & drop, bottom sheet, transaction entry, editor
   screens/          Coins · History · Reports · Debts · Settings
+server/
+  src/auth.ts       initData signature check
+  src/db.ts         SQLite schema, changes, journal, backups
+  src/index.ts      HTTP API: /api/state, /api/ops, /api/rates, /api/import
 ```
 
 ## Getting started
@@ -62,11 +70,13 @@ To try it inside Telegram on your phone, expose the dev server over HTTPS, for e
 
 ## Deployment
 
-`dist/` is plain static files, so any HTTPS host will do. The repo includes a Docker image with nginx, TLS and sensible caching headers:
+`docker compose` runs two containers: nginx with the static app and TLS, and the API, which nginx proxies at `/api/`.
 
 ```bash
 git clone https://github.com/mbchl-code/coinly && cd coinly
 mkdir certs   # put fullchain.pem and key.pem here
+echo "BOT_TOKEN=<token from BotFather>" > .env && chmod 600 .env
+mkdir data && chown 1000:1000 data   # SQLite + backups; the API runs as uid 1000
 COINLY_PORT=9443 docker compose up -d --build
 ```
 
@@ -87,7 +97,7 @@ acme.sh --install-cert -d <name>.duckdns.org \
 2. Go to **Bot Settings → Configure Mini App → Enable Mini App** and enter the app's HTTPS URL. The app then appears in the bot's profile and opens via `t.me/<bot>?startapp`.
 3. Optionally, set **Bot Settings → Menu Button** so the app opens from the button next to the message field.
 
-No bot code is required: the Mini App runs entirely on the client.
+No bot code is required; the API only needs the bot token to verify who is calling.
 
 ## Roadmap
 

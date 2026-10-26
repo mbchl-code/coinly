@@ -869,6 +869,20 @@ button.row:active,
 }
 
 /* ───────── Tab bar: translucent material, контент прокручивается под ним ───────── */
+.sync-banner {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(var(--tabbar-h) + var(--safe-bottom) + 8px);
+  z-index: 21;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.8125rem;
+  text-align: center;
+}
+
 .tabbar {
   position: fixed;
   left: 0;

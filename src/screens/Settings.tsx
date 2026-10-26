@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Icon } from '../components/Icon'
 import { CURRENCIES } from '../defaults'
 import { fetchRates } from '../rates'
 import { coinMap, txKind, txSide, usedCurrencies } from '../selectors'
-import { storageLabel } from '../storage'
+import { online, storageLabel, subscribeStatus, type SyncStatus } from '../storage'
 import { useStore } from '../store'
 import { alertDialog, confirmDialog, haptic } from '../telegram'
 import type { Coin, CoinKind } from '../types'
@@ -16,6 +16,8 @@ export function Settings() {
   const { state, dispatch } = useStore()
   const ui = useUI()
   const [loading, setLoading] = useState(false)
+  const [sync, setSync] = useState<SyncStatus | null>(null)
+  useEffect(() => subscribeStatus(setSync), [])
   const base = state.baseCurrency
   const foreign = usedCurrencies(state)
 
@@ -51,6 +53,27 @@ export function Settings() {
       await alertDialog('Не удалось скопировать в буфер обмена')
     }
   }
+
+  const exportJson = async () => {
+    const { coins, txs, baseCurrency } = state
+    try {
+      await navigator.clipboard.writeText(JSON.stringify({ exportedAt: new Date().toISOString(), baseCurrency, coins, txs }))
+      haptic.success()
+      await alertDialog(`Скопирована полная копия: ${txs.length} операций. Сохраните её в заметки или файл.`)
+    } catch {
+      await alertDialog('Не удалось скопировать в буфер обмена')
+    }
+  }
+
+  const syncLabel = !sync
+    ? ''
+    : sync.authError
+      ? 'перезапустите приложение'
+      : sync.pending
+        ? `не отправлено: ${sync.pending}${sync.offline ? ' · нет связи' : ''}`
+        : sync.offline
+          ? 'нет связи'
+          : 'всё сохранено'
 
   const reset = async () => {
     if (!(await confirmDialog('Удалить все счета, категории и операции? Это действие нельзя отменить.'))) return
@@ -152,9 +175,13 @@ export function Settings() {
         <div className="card list">
           <div className="form-row">
             <span>Хранение</span>
-            <span className="muted">{storageLabel}</span>
+            <span className="muted">
+              {storageLabel}
+              {online && syncLabel && ` · ${syncLabel}`}
+            </span>
           </div>
           <button type="button" className="row add-row" onClick={exportCsv}>Скопировать операции в CSV</button>
+          <button type="button" className="row add-row" onClick={exportJson}>Скопировать полную копию (JSON)</button>
           <button type="button" className="row add-row danger" onClick={reset}>Сбросить все данные</button>
         </div>
       </section>
